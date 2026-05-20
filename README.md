@@ -777,7 +777,7 @@ getModelConfigs() {
 
 ## 🤝 贡献
 
-欢迎贡献！请查看 [CONTRIBUTING.md](docs/CONTRIBUTING.md) 了解如何参与项目。
+欢迎贡献！请查看 [CONTRIBUTING.md](docs/CONTRIBUTING.md) 了解如何参与项目
 
 **贡献新 Provider**：
 
