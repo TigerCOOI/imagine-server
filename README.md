@@ -4,7 +4,7 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
 
-基于 Hono 构建的统一 AI 图像生成 API 服务，支持多个 AI 提供商（Hugging Face、Gitee AI、ModelScope），提供文生图、图生图、图生视频、图像放大等功能。
+基于 Hono 构建的统一 AI 图像生成 API 服务，支持多个 AI 提供商（Hugging Face、Gitee AI、ModelScope），提供文生图、图生图、图生视频、图像放大等功能
 
 ## ✨ 特性
 
