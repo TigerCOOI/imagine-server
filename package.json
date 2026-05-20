@@ -46,7 +46,7 @@
     "vercel:deploy": "vercel deploy",
     "vercel:prod": "vercel deploy --prod",
     "wrangler:dev": "wrangler dev",
-    "wrangler:deploy": "wrangler deploy",
+    "wrangler:deploy": "wrangler deploy --keep-vars",
     "wrangler:tail": "wrangler tail"
   },
   "engines": {
