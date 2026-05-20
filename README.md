@@ -806,7 +806,7 @@ getModelConfigs() {
 
 ## 📧 联系
 
-如有问题或建议，请提交 [Issue](https://github.com/yourusername/imagine-server/issues)。
+如有问题或建议，请提交 [Issue](https://github.com/yourusername/imagine-server/issues)
 
 ---
 
