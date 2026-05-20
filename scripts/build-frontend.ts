@@ -65,19 +65,29 @@ export default defineConfig(({ mode }) => {
   console.log(" 注入默认 S3 配置...");
   const storageServicePath = path.join(TEMP_DIR, "services", "storageService.ts");
   let storageServiceContent = fs.readFileSync(storageServicePath, "utf8");
+  
+  const defaultS3Config = {
+    accessKeyId: process.env.VITE_DEFAULT_S3_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.VITE_DEFAULT_S3_SECRET_ACCESS_KEY || "",
+    bucket: process.env.VITE_DEFAULT_S3_BUCKET_NAME || "",
+    region: process.env.VITE_DEFAULT_S3_REGION || "auto",
+    endpoint: process.env.VITE_DEFAULT_S3_ENDPOINT || "",
+    publicDomain: process.env.VITE_DEFAULT_S3_PUBLIC_DOMAIN || "",
+    prefix: process.env.VITE_DEFAULT_S3_PREFIX || "peinture/",
+  };
+  console.log(" 默认 S3 配置检查:", {
+    endpoint: defaultS3Config.endpoint,
+    bucket: defaultS3Config.bucket,
+    region: defaultS3Config.region,
+    publicDomain: defaultS3Config.publicDomain,
+    prefix: defaultS3Config.prefix,
+    accessKeyIdExists: !!defaultS3Config.accessKeyId,
+    secretAccessKeyExists: !!defaultS3Config.secretAccessKey,
+  });
   storageServiceContent = storageServiceContent.replace(
     /export const DEFAULT_S3_CONFIG: S3Config = \{[\s\S]*?\};/,
-    `export const DEFAULT_S3_CONFIG: S3Config = {
-    accessKeyId: import.meta.env.VITE_DEFAULT_S3_ACCESS_KEY_ID || "",
-    secretAccessKey: import.meta.env.VITE_DEFAULT_S3_SECRET_ACCESS_KEY || "",
-    bucket: import.meta.env.VITE_DEFAULT_S3_BUCKET_NAME || "",
-    region: import.meta.env.VITE_DEFAULT_S3_REGION || "auto",
-    endpoint: import.meta.env.VITE_DEFAULT_S3_ENDPOINT || "",
-    publicDomain: import.meta.env.VITE_DEFAULT_S3_PUBLIC_DOMAIN || "",
-    prefix: import.meta.env.VITE_DEFAULT_S3_PREFIX || "peinture/",
-  };`
+    `export const DEFAULT_S3_CONFIG: S3Config = ${JSON.stringify(defaultS3Config, null, 2)};`
   );
-
   fs.writeFileSync(storageServicePath, storageServiceContent);
   const configStorePath = path.join(TEMP_DIR, "store", "configStore.ts");
   let configStoreContent = fs.readFileSync(configStorePath, "utf8");
