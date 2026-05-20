@@ -61,6 +61,32 @@ export default defineConfig(({ mode }) => {
 });
 `;
   fs.writeFileSync(path.join(TEMP_DIR, "vite.config.ts"), viteConfigContent);
+  // 注入默认 S3 配置到 Peinture 前端
+  console.log(" 注入默认 S3 配置...");
+  const storageServicePath = path.join(TEMP_DIR, "services", "storageService.ts");
+  let storageServiceContent = fs.readFileSync(storageServicePath, "utf8");
+  storageServiceContent = storageServiceContent.replace(
+    /export const DEFAULT_S3_CONFIG: S3Config = \{[\s\S]*?\};/,
+    `export const DEFAULT_S3_CONFIG: S3Config = {
+    accessKeyId: import.meta.env.VITE_DEFAULT_S3_ACCESS_KEY_ID || "",
+    secretAccessKey: import.meta.env.VITE_DEFAULT_S3_SECRET_ACCESS_KEY || "",
+    bucket: import.meta.env.VITE_DEFAULT_S3_BUCKET_NAME || "",
+    region: import.meta.env.VITE_DEFAULT_S3_REGION || "auto",
+    endpoint: import.meta.env.VITE_DEFAULT_S3_ENDPOINT || "",
+    publicDomain: import.meta.env.VITE_DEFAULT_S3_PUBLIC_DOMAIN || "",
+    prefix: import.meta.env.VITE_DEFAULT_S3_PREFIX || "peinture/",
+  };`
+  );
+
+  fs.writeFileSync(storageServicePath, storageServiceContent);
+  const configStorePath = path.join(TEMP_DIR, "store", "configStore.ts");
+  let configStoreContent = fs.readFileSync(configStorePath, "utf8");
+  configStoreContent = configStoreContent.replace(
+    /storageType:\s*"opfs",/,
+    `storageType: "s3",`
+  );
+  
+  fs.writeFileSync(configStorePath, configStoreContent);
 
   // 构建项目（注入服务器模式环境变量）
   console.log("🔨 构建项目（服务器模式）...");
