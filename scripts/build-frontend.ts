@@ -61,10 +61,9 @@ export default defineConfig(({ mode }) => {
 });
 `;
   fs.writeFileSync(path.join(TEMP_DIR, "vite.config.ts"), viteConfigContent);
-  // 输入 API Token 后，才自动填充 S3 配置并切换到 S3
-  console.log(" 注入：输入 API Token 后自动填充 S3 并切换 S3...");
-  const configStorePath = path.join(TEMP_DIR, "store", "configStore.ts");
-  let configStoreContent = fs.readFileSync(configStorePath, "utf8");
+  // 输入服务 API Token 后，才自动填充 S3 配置并切换到 S3
+  console.log(" 注入：服务 API Token 登录后自动填充 S3 并切换 S3...");
+
   const loginS3Config = {
     accessKeyId: process.env.VITE_DEFAULT_S3_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.VITE_DEFAULT_S3_SECRET_ACCESS_KEY || "",
@@ -74,6 +73,7 @@ export default defineConfig(({ mode }) => {
     publicDomain: process.env.VITE_DEFAULT_S3_PUBLIC_DOMAIN || "",
     prefix: process.env.VITE_DEFAULT_S3_PREFIX || "peinture/",
   };
+
   console.log(" 登录后 S3 配置检查:", {
     endpoint: loginS3Config.endpoint,
     bucket: loginS3Config.bucket,
@@ -83,34 +83,39 @@ export default defineConfig(({ mode }) => {
     accessKeyIdExists: !!loginS3Config.accessKeyId,
     secretAccessKeyExists: !!loginS3Config.secretAccessKey,
   });
-  const oldConfigStoreContent = configStoreContent;
-  configStoreContent = configStoreContent.replace(
-    /setProviderTokens:\s*\(providerId,\s*tokenString\)\s*=>\s*\{\s*const list = tokenString\s*\.split\(","\)\s*\.map\(\(t\) => t\.trim\(\)\)\s*\.filter\(\(t\) => t\.length > 0\);\s*set\(\(state\) => \(\{\s*tokens:\s*\{\s*\.\.\.state\.tokens,\s*\[providerId\]: list,\s*\},\s*\}\)\);\s*\},/,
-    `setProviderTokens: (providerId, tokenString) => {
-        const list = tokenString
-          .split(",")
-          .map((t) => t.trim())
-          .filter((t) => t.length > 0);
-        set((state) => {
-          const nextState: Partial<ConfigState> = {
-            tokens: {
-              ...state.tokens,
-              [providerId]: list,
-            },
-          };
-          if (list.length > 0) {
-            nextState.storageType = "s3";
-            nextState.s3Config = ${JSON.stringify(loginS3Config, null, 12)};
-          }
-          return nextState;
-        });
-      },`
+
+  const appInitPath = path.join(TEMP_DIR, "hooks", "useAppInit.ts");
+  let appInitContent = fs.readFileSync(appInitPath, "utf8");
+  const oldAppInitContent = appInitContent;
+  // 从 configStore 里取 setStorageType / setS3Config
+  appInitContent = appInitContent.replace(
+    `const setServiceMode = useConfigStore((s) => s.setServiceMode);`,
+    `const setServiceMode = useConfigStore((s) => s.setServiceMode);
+  const setStorageType = useConfigStore((s) => s.setStorageType);
+  const setS3Config = useConfigStore((s) => s.setS3Config);`
+  );
+  // 输入 API Token 登录成功后，自动写入 S3 配置并切换到 S3
+  appInitContent = appInitContent.replace(
+    `setServiceMode("server"); // Use Store Action`,
+    `setServiceMode("server"); // Use Store Action
+      setS3Config(${JSON.stringify(loginS3Config, null, 8)});
+      setStorageType("s3");`
+  );
+  // 之前已经登录过，刷新页面自动恢复 S3
+  appInitContent = appInitContent.replace(
+    `addCustomProvider(serverProvider);`,
+    `addCustomProvider(serverProvider);
+          if (storedToken) {
+            setS3Config(${JSON.stringify(loginS3Config, null, 12)});
+            setStorageType("s3");
+          }`
   );
 
-  if (configStoreContent === oldConfigStoreContent) {
-    throw new Error("没有找到 setProviderTokens，API Token 后自动填充 S3 注入失败");
+  if (appInitContent === oldAppInitContent) {
+    throw new Error("没有成功修改 useAppInit.ts，服务 API Token 登录后自动切换 S3 注入失败");
   }
-  fs.writeFileSync(configStorePath, configStoreContent);
+
+  fs.writeFileSync(appInitPath, appInitContent);
 
   // 构建项目（注入服务器模式环境变量）
   console.log("🔨 构建项目（服务器模式）...");
