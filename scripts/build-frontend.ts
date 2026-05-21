@@ -89,14 +89,36 @@ export default defineConfig(({ mode }) => {
     `export const DEFAULT_S3_CONFIG: S3Config = ${JSON.stringify(defaultS3Config, null, 2)};`
   );
   fs.writeFileSync(storageServicePath, storageServiceContent);
+  // 登录 / 输入 API Token 后，自动切换到 S3
+  console.log(" 注入登录后自动切换 S3 逻辑...");
   const configStorePath = path.join(TEMP_DIR, "store", "configStore.ts");
   let configStoreContent = fs.readFileSync(configStorePath, "utf8");
   configStoreContent = configStoreContent.replace(
-    /storageType:\s*"opfs",/,
-    `storageType: "s3",`
+    /setProviderTokens:\s*\(providerId,\s*tokenString\)\s*=>\s*\{[\s\S]*?set\(\(state\)\s*=>\s*\(\{\s*tokens:\s*\{\s*\.\.\.state\.tokens,\s*\[providerId\]:\s*list,\s*\},\s*\}\)\);\s*\},/,
+    `setProviderTokens: (providerId, tokenString) => {
+      const list = tokenString
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
+      set((state) => {
+        const nextState: any = {
+          tokens: {
+            ...state.tokens,
+            [providerId]: list,
+          },
+        };
+        // 只要用户输入了任意 API Token，就自动切换到默认 S3
+        if (list.length > 0) {
+          nextState.storageType = "s3";
+          nextState.s3Config = DEFAULT_S3_CONFIG;
+        }
+        return nextState;
+        });
+    },`
   );
-  
-  fs.writeFileSync(configStorePath, configStoreContent);
+
+fs.writeFileSync(configStorePath, configStoreContent);
 
   // 构建项目（注入服务器模式环境变量）
   console.log("🔨 构建项目（服务器模式）...");
