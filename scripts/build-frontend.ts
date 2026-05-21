@@ -61,12 +61,11 @@ export default defineConfig(({ mode }) => {
 });
 `;
   fs.writeFileSync(path.join(TEMP_DIR, "vite.config.ts"), viteConfigContent);
-  // 注入默认 S3 配置到 Peinture 前端
-  console.log(" 注入默认 S3 配置...");
-  const storageServicePath = path.join(TEMP_DIR, "services", "storageService.ts");
-  let storageServiceContent = fs.readFileSync(storageServicePath, "utf8");
-  
-  const defaultS3Config = {
+  // 输入 API Token 后，才自动填充 S3 配置并切换到 S3
+  console.log(" 注入：输入 API Token 后自动填充 S3 并切换 S3...");
+  const configStorePath = path.join(TEMP_DIR, "store", "configStore.ts");
+  let configStoreContent = fs.readFileSync(configStorePath, "utf8");
+  const loginS3Config = {
     accessKeyId: process.env.VITE_DEFAULT_S3_ACCESS_KEY_ID || "",
     secretAccessKey: process.env.VITE_DEFAULT_S3_SECRET_ACCESS_KEY || "",
     bucket: process.env.VITE_DEFAULT_S3_BUCKET_NAME || "",
@@ -75,50 +74,43 @@ export default defineConfig(({ mode }) => {
     publicDomain: process.env.VITE_DEFAULT_S3_PUBLIC_DOMAIN || "",
     prefix: process.env.VITE_DEFAULT_S3_PREFIX || "peinture/",
   };
-  console.log(" 默认 S3 配置检查:", {
-    endpoint: defaultS3Config.endpoint,
-    bucket: defaultS3Config.bucket,
-    region: defaultS3Config.region,
-    publicDomain: defaultS3Config.publicDomain,
-    prefix: defaultS3Config.prefix,
-    accessKeyIdExists: !!defaultS3Config.accessKeyId,
-    secretAccessKeyExists: !!defaultS3Config.secretAccessKey,
+  console.log(" 登录后 S3 配置检查:", {
+    endpoint: loginS3Config.endpoint,
+    bucket: loginS3Config.bucket,
+    region: loginS3Config.region,
+    publicDomain: loginS3Config.publicDomain,
+    prefix: loginS3Config.prefix,
+    accessKeyIdExists: !!loginS3Config.accessKeyId,
+    secretAccessKeyExists: !!loginS3Config.secretAccessKey,
   });
-  storageServiceContent = storageServiceContent.replace(
-    /export const DEFAULT_S3_CONFIG: S3Config = \{[\s\S]*?\};/,
-    `export const DEFAULT_S3_CONFIG: S3Config = ${JSON.stringify(defaultS3Config, null, 2)};`
-  );
-  fs.writeFileSync(storageServicePath, storageServiceContent);
-  // 登录 / 输入 API Token 后，自动切换到 S3
-  console.log(" 注入登录后自动切换 S3 逻辑...");
-  const configStorePath = path.join(TEMP_DIR, "store", "configStore.ts");
-  let configStoreContent = fs.readFileSync(configStorePath, "utf8");
+  const oldConfigStoreContent = configStoreContent;
   configStoreContent = configStoreContent.replace(
-    /setProviderTokens:\s*\(providerId,\s*tokenString\)\s*=>\s*\{[\s\S]*?set\(\(state\)\s*=>\s*\(\{\s*tokens:\s*\{\s*\.\.\.state\.tokens,\s*\[providerId\]:\s*list,\s*\},\s*\}\)\);\s*\},/,
+    /setProviderTokens:\s*\(providerId,\s*tokenString\)\s*=>\s*\{\s*const list = tokenString\s*\.split\(","\)\s*\.map\(\(t\) => t\.trim\(\)\)\s*\.filter\(\(t\) => t\.length > 0\);\s*set\(\(state\) => \(\{\s*tokens:\s*\{\s*\.\.\.state\.tokens,\s*\[providerId\]: list,\s*\},\s*\}\)\);\s*\},/,
     `setProviderTokens: (providerId, tokenString) => {
-      const list = tokenString
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-
-      set((state) => {
-        const nextState: any = {
-          tokens: {
-            ...state.tokens,
-            [providerId]: list,
-          },
-        };
-        // 只要用户输入了任意 API Token，就自动切换到默认 S3
-        if (list.length > 0) {
-          nextState.storageType = "s3";
-          nextState.s3Config = DEFAULT_S3_CONFIG;
-        }
-        return nextState;
+        const list = tokenString
+          .split(",")
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        set((state) => {
+          const nextState: Partial<ConfigState> = {
+            tokens: {
+              ...state.tokens,
+              [providerId]: list,
+            },
+          };
+          if (list.length > 0) {
+            nextState.storageType = "s3";
+            nextState.s3Config = ${JSON.stringify(loginS3Config, null, 12)};
+          }
+          return nextState;
         });
-    },`
+      },`
   );
 
-fs.writeFileSync(configStorePath, configStoreContent);
+  if (configStoreContent === oldConfigStoreContent) {
+    throw new Error("没有找到 setProviderTokens，API Token 后自动填充 S3 注入失败");
+  }
+  fs.writeFileSync(configStorePath, configStoreContent);
 
   // 构建项目（注入服务器模式环境变量）
   console.log("🔨 构建项目（服务器模式）...");
